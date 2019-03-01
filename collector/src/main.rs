@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
 use tempfile::TempDir;
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct Benchmark {
     name: String,
     inputs: Vec<Input>,
@@ -22,7 +22,7 @@ impl Benchmark {
     }
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum Input {
     CargoLock { contents: String },
@@ -32,7 +32,7 @@ enum Input {
     WasmPack { version: String },
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct Output {
     bytes: u64,
     name: String,
@@ -47,7 +47,8 @@ const USAGE: &'static str = "
 Collect benchmark data about size of various Rust/wasm projects
 
 Usage:
-    collector [options] <output>
+    collector measure [options] <output> <benchmarks>...
+    collector merge [options] <output> <inputs>...
     collector -h | --help
 
 Options:
@@ -57,8 +58,12 @@ Options:
 
 #[derive(Debug, serde::Deserialize)]
 struct Args {
+    cmd_measure: bool,
+    cmd_merge: bool,
     arg_output: PathBuf,
     flag_tmp_dir: Option<PathBuf>,
+    arg_benchmarks: Vec<String>,
+    arg_inputs: Vec<String>,
 }
 
 fn main() {
@@ -77,7 +82,12 @@ fn main() {
         tmp: &root,
         benchmarks: Vec::new(),
     };
-    let err = match cx.main(&args.arg_output) {
+    let result = if args.cmd_measure {
+        cx.measure(&args.arg_output, &args.arg_benchmarks)
+    } else {
+        cx.merge(&args.arg_output, &args.arg_inputs)
+    };
+    let err = match result {
         Ok(()) => return,
         Err(e) => e,
     };
@@ -89,14 +99,33 @@ fn main() {
 }
 
 impl Context<'_> {
-    fn main(&mut self, dst: &Path) -> Result<(), Error> {
+    fn measure(&mut self, dst: &Path, benchmarks: &[String]) -> Result<(), Error> {
         fs::create_dir_all(&self.cargo_target_dir())?;
 
-        self.twiggy()?;
-        self.game_of_life()?;
-        self.rust_webpack_template()?;
+        for benchmark in benchmarks {
+            match benchmark.as_str() {
+                "twiggy" => self.twiggy()?,
+                "game_of_life" => self.game_of_life()?,
+                "rust_webpack_template" => self.rust_webpack_template()?,
+                s => bail!("unknown benchmark: {}", s),
+            }
+        }
 
         fs::write(dst, serde_json::to_string(&self.benchmarks)?)?;
+        Ok(())
+    }
+
+    fn merge(&mut self, dst: &Path, inputs: &[String]) -> Result<(), Error> {
+        let mut benchmarks = Vec::new();
+
+        for input in inputs {
+            let json = fs::read_to_string(input)
+                .context(format!("failed to read {}", input))?;
+            let json: Vec<Benchmark> = serde_json::from_str(&json)?;
+            benchmarks.extend(json);
+        }
+
+        fs::write(dst, serde_json::to_string(&benchmarks)?)?;
         Ok(())
     }
 
