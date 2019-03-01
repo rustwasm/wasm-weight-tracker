@@ -59,7 +59,7 @@ jobs:
         inputs:
           artifactName: game_of_life
           targetPath: ./
-      - script: chmod +x ./collector/collector && ./collector/collector merge out.json *.json.gz
+      - script: chmod +x ./collector/collector && ./collector/collector merge out.json *.json
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: dataset
