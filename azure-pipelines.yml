@@ -2,37 +2,69 @@ trigger:
 - master
 
 jobs:
-  - job: measure
-    displayName: "Run wasm-bindgen crate tests (unix)"
+  - job: build_collector
+    displayName: "Build the collector binary"
     steps:
-      # Install nightly rust so we can measure changes to the wasm target as
-      # they land.
+      - template: ci/azure-install-rust.yml
+      - script: cargo build
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: collector
+          targetPath: target/debug/collector
+
+  - job: collect_data
+    dependsOn: build_collector
+    displayName: "Gather benchmark data"
+    strategy:
+      matrix:
+        twiggy:
+          benchmark: twiggy
+        rust_webpack_template:
+          benchmark: rust_webpack_template
+        game_of_life:
+          benchmark: game_of_life
+    steps:
       - template: ci/azure-install-rust.yml
         parameters:
           toolchain: nightly
-      - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
-        displayName: "Install wasm-pack"
-      - script: cargo run out.json
-        displayName: "Collect benchmark data"
-      - script: |
-          set -e
-          eval `ssh-agent`
-          export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
-          echo $GITHUB_DEPLOY_KEY | base64 -d > _the_key
-          chmod 600 _the_key
-          ssh-add _the_key
-          git clone git@github.com:rustwasm/wasm-weight-tracker-data
-          mkdir -p wasm-weight-tracker-data/builds
-          gzip -9 out.json
-          date=$(date +'%Y-%m-%d-%H%M')
-          mv out.json.gz wasm-weight-tracker-data/builds/$date.json.gz
-          cd wasm-weight-tracker-data
-          git add .
-          git config user.name "Deploy from CI"
-          git config user.email ""
-          git commit -m "More data"
-          git push
-        displayName: "Push new data to data repo"
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        env:
-          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY)'
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: collector
+          targetPath: ./collector
+      - script: chmod +x ./collector/collector && ./collector/collector $(benchmark) out.json
+      - task: PublishPipelineArtifact@0
+        inputs:
+          artifactName: $(benchmark)
+          targetPath: out.json
+
+  - job: publish
+    dependsOn: collect_data
+    displayName: "Collate and publish benchmark data"
+    steps:
+      - template: ci/azure-install-rust.yml
+      # - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+      #   displayName: "Install wasm-pack"
+      # - script: cargo run out.json
+      #   displayName: "Collect benchmark data"
+      # - script: |
+      #     set -e
+      #     eval `ssh-agent`
+      #     export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
+      #     echo $GITHUB_DEPLOY_KEY | base64 -d > _the_key
+      #     chmod 600 _the_key
+      #     ssh-add _the_key
+      #     git clone git@github.com:rustwasm/wasm-weight-tracker-data
+      #     mkdir -p wasm-weight-tracker-data/builds
+      #     gzip -9 out.json
+      #     date=$(date +'%Y-%m-%d-%H%M')
+      #     mv out.json.gz wasm-weight-tracker-data/builds/$date.json.gz
+      #     cd wasm-weight-tracker-data
+      #     git add .
+      #     git config user.name "Deploy from CI"
+      #     git config user.email ""
+      #     git commit -m "More data"
+      #     git push
+      #   displayName: "Push new data to data repo"
+      #   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      #   env:
+      #     GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY)'
