@@ -44,22 +44,41 @@ struct Context<'a> {
     benchmarks: Vec<Benchmark>,
 }
 
+const USAGE: &'static str = "
+Collect benchmark data about size of various Rust/wasm projects
+
+Usage:
+    collector [options] <output>
+    collector -h | --help
+
+Options:
+    -h --help                    Show this screen.
+    --tmp-dir DIR                Temporary build directory
+";
+
+#[derive(Debug, serde::Deserialize)]
+struct Args {
+    arg_output: PathBuf,
+    flag_tmp_dir: Option<PathBuf>,
+}
+
 fn main() {
     env_logger::init();
-    let dst = env::args_os().nth(1).unwrap();
+    let args: Args = docopt::Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
+
     let temp = TempDir::new().unwrap();
-    let root = if env::var("CI").is_ok() {
-        temp.path().to_path_buf()
-    } else {
-        let p = env::current_dir().unwrap().join("build");
-        fs::create_dir_all(&p).unwrap();
-        p
+    let root = match &args.flag_tmp_dir {
+        Some(p) => p.as_path(),
+        None => temp.path(),
     };
+    fs::create_dir_all(root).unwrap();
     let mut cx = Context {
         tmp: &root,
         benchmarks: Vec::new(),
     };
-    let err = match cx.main(dst.as_ref()) {
+    let err = match cx.main(&args.arg_output) {
         Ok(()) => return,
         Err(e) => e,
     };
@@ -73,11 +92,10 @@ fn main() {
 impl Context<'_> {
     fn main(&mut self, dst: &Path) -> Result<(), Error> {
         fs::create_dir_all(&self.cargo_target_dir())?;
-        self.twiggy().context("failed to benchmark twiggy")?;
-        self.game_of_life()
-            .context("failed to benchmark game-of-life")?;
-        self.rust_webpack_template()
-            .context("failed to benchmark rust-webpack-template")?;
+
+        self.twiggy()?;
+        self.game_of_life()?;
+        self.rust_webpack_template()?;
 
         fs::write(dst, serde_json::to_string(&self.benchmarks)?)?;
         Ok(())
