@@ -1,5 +1,4 @@
 use failure::{bail, Error, ResultExt};
-use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -223,7 +222,7 @@ impl Context<'_> {
                 .arg(root.join("dist"))
                 .env("CARGO_TARGET_DIR", self.cargo_target_dir())
                 .current_dir(root),
-        );
+        )?;
 
         let mut js = 0;
         let mut js_gz = 0;
