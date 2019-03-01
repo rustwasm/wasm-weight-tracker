@@ -7,13 +7,14 @@ jobs:
     steps:
       # Install nightly rust so we can measure changes to the wasm target as
       # they land.
-      - template: ci/azure-install-rust.yml
-        parameters:
-          toolchain: nightly
-      - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
-        displayName: "Install wasm-pack"
-      - script: cargo run out.json
-        displayName: "Collect benchmark data"
+      # - template: ci/azure-install-rust.yml
+      #   parameters:
+      #     toolchain: nightly
+      # - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+      #   displayName: "Install wasm-pack"
+      # - script: cargo run out.json
+      #   displayName: "Collect benchmark data"
+      - script: touch out.json
       - script: |
           eval `ssh-agent`
           export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
