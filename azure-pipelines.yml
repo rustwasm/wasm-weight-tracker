@@ -5,6 +5,32 @@ jobs:
   - job: measure
     displayName: "Run wasm-bindgen crate tests (unix)"
     steps:
+      # Install nightly rust so we can measure changes to the wasm target as
+      # they land.
       - template: ci/azure-install-rust.yml
+        parameters:
+          toolchain: nightly
+      - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+        displayName: "Install wasm-pack"
       - script: cargo run out.json
         displayName: "Collect benchmark data"
+      - script: |
+          eval `ssh-agent`
+          export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
+          echo $GITHUB_DEPLOY_KEY | base64 -d > _the_key
+          ssh-add _the_key
+          git clone git@github.com:rustwasm/wasm-weight-tracker-data
+          mkdir -p wasm-weight-tracker-data/builds
+          gzip -9 out.json
+          date=$(date +'%Y-%m-%d-%H%M')
+          mv out.json.gz wasm-weight-tracker-data/builds/$date.json.gz
+          cd wasm-weight-tracker-data
+          git add .
+          git config user.name "Deploy from CI"
+          git config user.email ""
+          git commit -m "More data"
+          git push
+        displayName: "Push new data to data repo"
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        env:
+          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY)'
