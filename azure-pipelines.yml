@@ -6,7 +6,7 @@ jobs:
     displayName: "Build the collector binary"
     steps:
       - template: ci/azure-install-rust.yml
-      - script: cargo build
+      - script: cargo build && strip -g target/debug/collector
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: collector
