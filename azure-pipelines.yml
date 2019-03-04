@@ -96,7 +96,7 @@ jobs:
         inputs:
           artifactName: collector
           targetPath: ./collector
-      - script: chmod +x ./collector/site && ./collector/site --git tmp html/out.json
+      - script: chmod +x ./collector/site && ./collector/site --git tmp html/data.json
       - script: |
           set -e
           source ci/setup-git.sh
