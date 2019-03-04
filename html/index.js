@@ -7,7 +7,6 @@ async function run() {
   const json = await response.json();
 
   for (let day of json) {
-    // dates[day.date] = day.data;
     for (let bm of day.data) {
       if (series[bm.name] === undefined)
         series[bm.name] = {};
@@ -15,12 +14,10 @@ async function run() {
 
       for (let output of bm.outputs) {
         if (data[output.name] === undefined)
-          data[output.name] = [];
-        data[output.name].push([Date.parse(day.date), output.bytes]);
+          data[output.name] = { inputs: [], data: [] };
+        data[output.name].inputs.push(bm.inputs);
+        data[output.name].data.push([Date.parse(day.date), output.bytes]);
       }
-      // if (names[bm.name] === undefined)
-      //   names[bm.name] = {};
-      // names[bm.name][day.date] = bm;
     }
   }
 
@@ -50,7 +47,7 @@ function render() {
     for (let output in series[bm]) {
       let sizes = series[bm][output];
       let raw = [];
-      for (let datapoint of sizes) {
+      for (let datapoint of sizes.data) {
         let value = 0;
         if (absolute) {
           value = datapoint[1];
@@ -85,10 +82,47 @@ function render() {
         },
       },
       tooltip: {
+        useHTML: true,
         headerFormat: '<b>{series.name}</b><br>',
-        pointFormatter: function() { return format(this.y); },
+        pointFormatter: function() {
+          let text = format(this.y);
+          if (this.index > 0) {
+            const prev = this.series.data[this.index - 1];
+
+            const inputs = point => {
+              const data = series[point.series.chart.title.textStr];
+              const inputs = data[point.series.name].inputs[point.index];
+              return inputs;
+            };
+
+            const before = inputs(prev);
+            const after = inputs(this);
+            const diff = diff_inputs(before, after);
+            text += '<br>' + diff;
+          }
+          return text;
+        },
       },
       series: data,
+      // plotOptions: {
+      //   series: {
+      //     point: {
+      //       events: {
+      //         click: function(event) {
+      //           const point = event.point;
+      //           if (point.index === 0) {
+      //             return;
+      //           }
+      //           console.log(point.series.chart.title.textStr);
+      //           console.log(point.series.name);
+      //           console.log(point.x, point.y);
+      //           const prev = point.series.data[point.index - 1];
+      //           console.log(event);
+      //         },
+      //       },
+      //     },
+      //   },
+      // },
     });
   }
 }
@@ -119,3 +153,36 @@ function bytes(val) {
 }
 
 document.addEventListener('DOMContentLoaded', run);
+
+function diff_inputs(a, b) {
+  let text = '<ul>';
+
+  const b_used = [];
+  for (let i = 0; i < b.length; i++)
+    b_used.push(false);
+
+  for (let a_input of a) {
+    for (let i = 0; i < b.length; i++) {
+      if (b_used[i] || b[i].type != a_input.type)
+        continue;
+      b_used[i] = true;
+      if (a_input.type == 'git') {
+      } else if (a_input.type == 'wasm-pack') {
+      } else if (a_input.type == 'rustc') {
+        if (a_input.rev == b[i].rev)
+          continue;
+
+        const url = `https://github.com/rust-lang/rust/compare/${a_input.rev}...${b[i].rev}`;
+        text += ` &middot; <a href="${url}">rustc changes</a>`;
+      } else if (a_input.type == 'cargo-lock') {
+      } else {
+        throw new Error('unknown input type ' + a_input.type);
+      }
+      console.log(a_input);
+    }
+  }
+
+  text += '</ul>';
+
+  return text;
+}
