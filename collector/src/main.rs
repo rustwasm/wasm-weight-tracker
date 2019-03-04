@@ -175,7 +175,9 @@ impl Context<'_> {
                 .env("CARGO_TARGET_DIR", self.cargo_target_dir()),
         )?;
         let contents = self.find_lockfile(root)?;
-        b.inputs.push(Input::CargoLock { contents });
+        let toml: toml::Value = toml::from_str(&contents)?;
+        let json = serde_json::to_string(&toml)?;
+        b.inputs.push(Input::CargoLock { contents: json });
 
         let pkg = root.join("pkg");
         let js = pkg.join(crate_name).with_extension("js");

@@ -169,32 +169,45 @@ function diff_inputs(a, b) {
       if (b_used[i] || b[i].type != a_input.type)
         continue;
       b_used[i] = true;
+
       if (a_input.type == 'git') {
         if (a_input.rev === b[i].rev)
           continue;
-        if (a_input.url == b[i].url) {
-          const url = `${a_input.url}/compare/${a_input.rev}...${b[i].rev}`;
-          text += `<li><a target=_blank href="${url}">source changes</a></li>\n`;
-          continue;
-        }
-      } else if (a_input.type == 'wasm-pack') {
+        if (a_input.url != b[i].url)
+          throw new Error(`urls differ "${a_input.url}" != "${b[i].url}"`);
+        const url = `${a_input.url}/compare/${a_input.rev}...${b[i].rev}`;
+        text += `<li><a target=_blank href="${url}">source changes</a></li>\n`;
+        continue;
+      }
+
+      if (a_input.type == 'wasm-pack') {
         if (a_input.version == b[i].version)
           continue;
         const get = version => version.trim().split(' ')[1];
         const url = `https://github.com/rustwasm/wasm-pack/compare/v${get(a_input.version)}...v${get(b[i].version)}`;
         text += `<li><a target=_blank href="${url}">wasm-pack changes</a></li>\n`;
-      } else if (a_input.type == 'rustc') {
+        continue;
+      }
+
+      if (a_input.type == 'rustc') {
         if (a_input.rev == b[i].rev)
           continue;
         const url = `https://github.com/rust-lang/rust/compare/${a_input.rev}...${b[i].rev}`;
         text += `<li><a target=_blank href="${url}">rustc changes</a></li>\n`;
         continue;
-      } else if (a_input.type == 'cargo-lock') {
-      } else if (a_input.type == 'package-json-lock') {
-      } else {
-        throw new Error('unknown input type ' + a_input.type);
       }
-      console.log(a_input);
+
+      if (a_input.type == 'cargo-lock') {
+        console.log(a_input);
+        continue;
+      }
+
+      if (a_input.type == 'package-json-lock') {
+        console.log(a_input);
+        continue;
+      }
+
+      throw new Error('unknown input type ' + a_input.type);
     }
   }
 
