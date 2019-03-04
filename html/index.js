@@ -52,7 +52,7 @@ function render() {
         if (absolute) {
           value = datapoint[1];
         } else {
-          value = datapoint[1] / sizes[0][1];
+          value = datapoint[1] / sizes.data[0][1];
         }
         raw.push([datapoint[0], value]);
       }
@@ -83,6 +83,9 @@ function render() {
       },
       tooltip: {
         useHTML: true,
+        style: {
+          pointerEvents: 'auto',
+        },
         headerFormat: '<b>{series.name}</b><br>',
         pointFormatter: function() {
           let text = format(this.y);
@@ -155,7 +158,7 @@ function bytes(val) {
 document.addEventListener('DOMContentLoaded', run);
 
 function diff_inputs(a, b) {
-  let text = '<ul>';
+  let text = "<ul>\n";
 
   const b_used = [];
   for (let i = 0; i < b.length; i++)
@@ -167,14 +170,27 @@ function diff_inputs(a, b) {
         continue;
       b_used[i] = true;
       if (a_input.type == 'git') {
+        if (a_input.rev === b[i].rev)
+          continue;
+        if (a_input.url == b[i].url) {
+          const url = `${a_input.url}/compare/${a_input.rev}...${b[i].rev}`;
+          text += `<li><a target=_blank href="${url}">source changes</a></li>\n`;
+          continue;
+        }
       } else if (a_input.type == 'wasm-pack') {
+        if (a_input.version == b[i].version)
+          continue;
+        const get = version => version.trim().split(' ')[1];
+        const url = `https://github.com/rustwasm/wasm-pack/compare/v${get(a_input.version)}...v${get(b[i].version)}`;
+        text += `<li><a target=_blank href="${url}">wasm-pack changes</a></li>\n`;
       } else if (a_input.type == 'rustc') {
         if (a_input.rev == b[i].rev)
           continue;
-
         const url = `https://github.com/rust-lang/rust/compare/${a_input.rev}...${b[i].rev}`;
-        text += ` &middot; <a href="${url}">rustc changes</a>`;
+        text += `<li><a target=_blank href="${url}">rustc changes</a></li>\n`;
+        continue;
       } else if (a_input.type == 'cargo-lock') {
+      } else if (a_input.type == 'package-json-lock') {
       } else {
         throw new Error('unknown input type ' + a_input.type);
       }
@@ -182,7 +198,7 @@ function diff_inputs(a, b) {
     }
   }
 
-  text += '</ul>';
+  text += "</ul>";
 
   return text;
 }

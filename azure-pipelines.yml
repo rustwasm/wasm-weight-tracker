@@ -86,7 +86,7 @@ jobs:
         displayName: "Push new data to data repo"
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         env:
-          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY)'
+          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY_DATA)'
 
   - job: website
     dependsOn: publish
@@ -108,4 +108,4 @@ jobs:
         displayName: "Push to gh-pages"
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         env:
-          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY)'
+          GITHUB_DEPLOY_KEY: '$(GITHUB_DEPLOY_KEY_MAIN)'
