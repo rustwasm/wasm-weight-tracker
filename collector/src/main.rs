@@ -1,42 +1,10 @@
 use failure::{bail, Error, ResultExt};
+use shared::*;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{self, Command, Stdio};
+use std::process::{self, Command};
 use tempfile::TempDir;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Benchmark {
-    name: String,
-    inputs: Vec<Input>,
-    outputs: Vec<Output>,
-}
-
-impl Benchmark {
-    fn new(name: &str) -> Benchmark {
-        Benchmark {
-            name: name.to_string(),
-            inputs: Vec::new(),
-            outputs: Vec::new(),
-        }
-    }
-}
-
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-enum Input {
-    CargoLock { contents: String },
-    Git { url: String, rev: String },
-    Rustc { rev: String },
-    PackageJsonLock { contents: String },
-    WasmPack { version: String },
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Output {
-    bytes: u64,
-    name: String,
-}
 
 struct Context<'a> {
     tmp: &'a Path,
@@ -160,10 +128,10 @@ impl Context<'_> {
         let dst = self.tmp.join(&b.name);
 
         if !dst.exists() {
-            self.run(Command::new("git").arg("clone").arg(url).arg(&dst))
+            run(Command::new("git").arg("clone").arg(url).arg(&dst))
                 .context(format!("failed to clone {}", url))?;
         }
-        let rev = self.run_output(
+        let rev = run_output(
             Command::new("git")
                 .arg("rev-parse")
                 .arg("HEAD")
@@ -185,10 +153,10 @@ impl Context<'_> {
         b: &mut Benchmark,
     ) -> Result<(), Error> {
         log::debug!("wasm-pack build {:?}", root);
-        let version = self.run_output(Command::new("wasm-pack").arg("--version"))?;
+        let version = run_output(Command::new("wasm-pack").arg("--version"))?;
         b.inputs.push(Input::WasmPack { version });
 
-        let rustc_version = self.run_output(Command::new("rustc").arg("-vV"))?;
+        let rustc_version = run_output(Command::new("rustc").arg("-vV"))?;
         let rustc_commit = rustc_version
             .lines()
             .find(|l| l.starts_with("commit-hash: "))
@@ -200,7 +168,7 @@ impl Context<'_> {
             rev: rustc_commit.to_string(),
         });
 
-        self.run(
+        run(
             Command::new("wasm-pack")
                 .arg("build")
                 .current_dir(root)
@@ -233,7 +201,7 @@ impl Context<'_> {
 
     fn npm_install(&self, root: &Path, b: &mut Benchmark) -> Result<(), Error> {
         if !root.join("node_modules").exists() {
-            self.run(Command::new("npm").arg("install").current_dir(&root))?;
+            run(Command::new("npm").arg("install").current_dir(&root))?;
         }
         let contents = fs::read_to_string(root.join("package-lock.json"))?;
         b.inputs.push(Input::PackageJsonLock { contents });
@@ -241,7 +209,7 @@ impl Context<'_> {
     }
 
     fn webpack_build(&self, root: &Path, b: &mut Benchmark) -> Result<(), Error> {
-        self.run(
+        run(
             Command::new("npm")
                 .arg("run")
                 .arg("build")
@@ -306,24 +274,6 @@ impl Context<'_> {
                 Some(p) => cur = p,
                 None => bail!("could not find `Cargo.lcok` in {:?}", root),
             }
-        }
-    }
-
-    fn run(&self, cmd: &mut Command) -> Result<(), Error> {
-        self.run_output(cmd.stdout(Stdio::inherit()))?;
-        Ok(())
-    }
-
-    fn run_output(&self, cmd: &mut Command) -> Result<String, Error> {
-        log::debug!("running {:?}", cmd);
-        let output = cmd
-            .stderr(Stdio::inherit())
-            .output()
-            .context(format!("failed to run {:?}", cmd))?;
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-        } else {
-            bail!("failed to execute {:?}\nstatus: {}", cmd, output.status)
         }
     }
 
