@@ -8,15 +8,12 @@ async function run() {
 
   for (let day of json) {
     for (let bm of day.data) {
-      if (series[bm.name] === undefined)
-        series[bm.name] = {};
-      const data = series[bm.name];
+      const data = get_mut(series, bm.name, {});
 
       for (let output of bm.outputs) {
-        if (data[output.name] === undefined)
-          data[output.name] = { inputs: [], data: [] };
-        data[output.name].inputs.push(bm.inputs);
-        data[output.name].data.push([Date.parse(day.date), output.bytes]);
+        const slot = get_mut(data, output.name, { inputs: [], data: [] });
+        slot.inputs.push(bm.inputs);
+        slot.data.push([Date.parse(day.date), output.bytes]);
       }
     }
   }
@@ -82,6 +79,9 @@ function render() {
         },
       },
       tooltip: {
+        animation: false,
+        hideDelay: 1000000000,
+        outside: true,
         useHTML: true,
         style: {
           pointerEvents: 'auto',
@@ -107,25 +107,6 @@ function render() {
         },
       },
       series: data,
-      // plotOptions: {
-      //   series: {
-      //     point: {
-      //       events: {
-      //         click: function(event) {
-      //           const point = event.point;
-      //           if (point.index === 0) {
-      //             return;
-      //           }
-      //           console.log(point.series.chart.title.textStr);
-      //           console.log(point.series.name);
-      //           console.log(point.x, point.y);
-      //           const prev = point.series.data[point.index - 1];
-      //           console.log(event);
-      //         },
-      //       },
-      //     },
-      //   },
-      // },
     });
   }
 }
@@ -198,7 +179,67 @@ function diff_inputs(a, b) {
       }
 
       if (a_input.type == 'cargo-lock') {
-        console.log(a_input);
+        const before = JSON.parse(a_input.contents);
+        const after = JSON.parse(b[i].contents);
+        const before_pkg = {};
+        for (let pkg of before.package) {
+          get_mut(before_pkg, pkg.name, []).push(pkg.version);
+        }
+
+        const added = {};
+        for (let pkg of after.package) {
+          let list = get_mut(before_pkg, pkg.name, []);
+          let removed = false;
+          for (let i = 0; i < list.length; i++) {
+            if (list[i] === pkg.version) {
+              list[i] = undefined;
+              removed = true;
+              break;
+            }
+          }
+          if (removed)
+            continue;
+
+          get_mut(added, pkg.name, []).push(pkg.version);
+        }
+
+        for (let pkg in added) {
+          let versions = added[pkg];
+          let before_list = get_mut(before_pkg, pkg, []);
+          for (let version of versions) {
+            const url = `https://crates.io/crates/${pkg}/${version}`;
+
+            let removed = undefined;
+            for (let i = 0; i < before_list.length; i++) {
+              if (before_list[i] !== undefined) {
+                removed = before_list[i];
+                before_list[i] = undefined;
+                break;
+              }
+            }
+            if (removed === undefined) {
+              text += `<li>+ ${pkg.name} <a target=_blank href="${url}">${version}</a></li>\n`;
+            } else {
+              const before = `https://crates.io/crates/${pkg}/${removed}`;
+              text += `<li>
+                ${pkg}
+                <a target=_blank href="${before}">${removed}</a>
+                ->
+                <a target=_blank href="${url}">${version}</a>
+              </li>\n`;
+            }
+          }
+        }
+
+        for (let pkg in before_pkg) {
+          for (let version of before_pkg[pkg]) {
+            if (version === undefined)
+              continue;
+            const url = `https://crates.io/crates/${pkg}/${version}`;
+            text -= `<li>- ${pkg.name} <a target=_blank href="${url}">${version}</a></li>\n`;
+          }
+        }
+
         continue;
       }
 
@@ -214,4 +255,14 @@ function diff_inputs(a, b) {
   text += "</ul>";
 
   return text;
+}
+
+function diff_json(before, after) {
+}
+
+function get_mut(map, k, default_) {
+  if (map[k] === undefined) {
+    map[k] = default_;
+  }
+  return map[k];
 }
