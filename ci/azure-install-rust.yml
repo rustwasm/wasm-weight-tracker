@@ -23,3 +23,6 @@ steps:
         rustc -Vv
         cargo -V
     displayName: Query rust and cargo versions
+
+  - script: rustup target add wasm32-unknown-unknown
+    displayName: Add wasm target
