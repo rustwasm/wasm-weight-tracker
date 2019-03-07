@@ -1,21 +1,29 @@
 let absolute = true;
 
 const series = {};
+let max = null;
+let min = null;
 
 async function run() {
   const response = await fetch('./data.json');
   const json = await response.json();
 
   for (let day of json) {
+    const date = Date.parse(day.date);
     for (let bm of day.data) {
       const data = get_mut(series, bm.name, {});
 
       for (let output of bm.outputs) {
         const slot = get_mut(data, output.name, { inputs: [], data: [] });
         slot.inputs.push(bm.inputs);
-        slot.data.push([Date.parse(day.date), output.bytes]);
+        slot.data.push([date, output.bytes]);
       }
     }
+
+    if (max === null || date > max)
+      max = date;
+    if (min === null || date < min)
+      min = date;
   }
 
   const body = document.body;
@@ -77,6 +85,8 @@ function render() {
         title: {
           text: 'Date',
         },
+        max,
+        min,
       },
       tooltip: {
         animation: false,
