@@ -74,6 +74,7 @@ impl Context<'_> {
             match benchmark.as_str() {
                 "twiggy" => self.twiggy()?,
                 "dodrio_todomvc" => self.dodrio_todomvc()?,
+                "source_map_mappings" => self.source_map_mappings()?,
                 "game_of_life" => self.game_of_life()?,
                 "rust_webpack_template" => self.rust_webpack_template()?,
                 s => bail!("unknown benchmark: {}", s),
@@ -88,8 +89,7 @@ impl Context<'_> {
         let mut benchmarks = Vec::new();
 
         for input in inputs {
-            let json = fs::read_to_string(input)
-                .context(format!("failed to read {}", input))?;
+            let json = fs::read_to_string(input).context(format!("failed to read {}", input))?;
             let json: Vec<Benchmark> = serde_json::from_str(&json)?;
             benchmarks.extend(json);
         }
@@ -110,6 +110,18 @@ impl Context<'_> {
         let mut b = Benchmark::new("dodrio-todomvc");
         let root = self.git_clone("https://github.com/fitzgen/dodrio", &mut b)?;
         self.wasm_pack_build("dodrio_todomvc", &root.join("examples/todomvc"), &mut b)?;
+        self.benchmarks.push(b);
+        Ok(())
+    }
+
+    fn source_map_mappings(&mut self) -> Result<(), Error> {
+        let mut b = Benchmark::new("source-map-mappings");
+        let root = self.git_clone("https://github.com/fitzgen/source-map-mappings", &mut b)?;
+        self.cargo_build(
+            &root.join("source-map-mappings-wasm-api"),
+            "source_map_mappings_wasm_api",
+            &mut b,
+        )?;
         self.benchmarks.push(b);
         Ok(())
     }
@@ -165,28 +177,13 @@ impl Context<'_> {
         let version = run_output(Command::new("wasm-pack").arg("--version"))?;
         b.inputs.push(Input::WasmPack { version });
 
-        let rustc_version = run_output(Command::new("rustc").arg("-vV"))?;
-        let rustc_commit = rustc_version
-            .lines()
-            .find(|l| l.starts_with("commit-hash: "))
-            .expect("failed to find rustc commit hash")
-            .split_whitespace()
-            .nth(1)
-            .expect("failed to find rustc commit hash");
-        b.inputs.push(Input::Rustc {
-            rev: rustc_commit.to_string(),
-        });
+        self.add_rustc_version(b)?;
 
-        run(
-            Command::new("wasm-pack")
-                .arg("build")
-                .current_dir(root)
-                .env("CARGO_TARGET_DIR", self.cargo_target_dir()),
-        )?;
-        let contents = self.find_lockfile(root)?;
-        let toml: toml::Value = toml::from_str(&contents)?;
-        let json = serde_json::to_string(&toml)?;
-        b.inputs.push(Input::CargoLock { contents: json });
+        run(Command::new("wasm-pack")
+            .arg("build")
+            .current_dir(root)
+            .env("CARGO_TARGET_DIR", self.cargo_target_dir()))?;
+        self.add_lockfile(root, b)?;
 
         let pkg = root.join("pkg");
         let js = pkg.join(crate_name).with_extension("js");
@@ -210,6 +207,68 @@ impl Context<'_> {
         Ok(())
     }
 
+    fn cargo_build(
+        &mut self,
+        manifest_dir: &Path,
+        crate_name: &str,
+        b: &mut Benchmark,
+    ) -> Result<(), Error> {
+        log::debug!("cargo build {:?}", manifest_dir);
+        self.add_rustc_version(b)?;
+
+        run(Command::new("cargo")
+            .arg("build")
+            .arg("--release")
+            .arg("--target")
+            .arg("wasm32-unknown-unknown")
+            .current_dir(manifest_dir)
+            .env("CARGO_TARGET_DIR", self.cargo_target_dir()))?;
+        self.add_lockfile(manifest_dir, b)?;
+
+        let wasm = self.cargo_target_dir()
+            .join("wasm32-unknown-unknown")
+            .join("release")
+            .join(crate_name)
+            .with_extension("wasm");
+
+        // Strip out the debug and name custom sections as we don't want to
+        // account for those sizes in this measurement.
+        run(Command::new("wasm-strip").arg(&wasm))?;
+
+        b.outputs.push(Output {
+            bytes: wasm.metadata()?.len(),
+            name: "wasm".to_string(),
+        });
+        b.outputs.push(Output {
+            bytes: self.gzip_size(&wasm)?,
+            name: "wasm (gz)".to_string(),
+        });
+        Ok(())
+    }
+
+    fn add_rustc_version(&self, b: &mut Benchmark) -> Result<(), Error> {
+        let rustc_version = run_output(Command::new("rustc").arg("-vV"))?;
+        let rustc_commit = rustc_version
+            .lines()
+            .find(|l| l.starts_with("commit-hash: "))
+            .expect("failed to find rustc commit hash")
+            .split_whitespace()
+            .nth(1)
+            .expect("failed to find rustc commit hash");
+        b.inputs.push(Input::Rustc {
+            rev: rustc_commit.to_string(),
+        });
+        Ok(())
+    }
+
+    fn add_lockfile(&self, dir: &Path, b: &mut Benchmark) -> Result<(), Error> {
+        let contents = self.find_lockfile(dir)?;
+        let toml: toml::Value = toml::from_str(&contents)?;
+        let json = serde_json::to_string(&toml)?;
+        b.inputs.push(Input::CargoLock { contents: json });
+        Ok(())
+    }
+
     fn npm_install(&self, root: &Path, b: &mut Benchmark) -> Result<(), Error> {
         if !root.join("node_modules").exists() {
             run(Command::new("npm").arg("install").current_dir(&root))?;
@@ -220,17 +279,15 @@ impl Context<'_> {
     }
 
     fn webpack_build(&self, root: &Path, b: &mut Benchmark) -> Result<(), Error> {
-        run(
-            Command::new("npm")
-                .arg("run")
-                .arg("build")
-                .arg("--")
-                .arg("-p")
-                .arg("--out-dir")
-                .arg(root.join("dist"))
-                .env("CARGO_TARGET_DIR", self.cargo_target_dir())
-                .current_dir(root),
-        )?;
+        run(Command::new("npm")
+            .arg("run")
+            .arg("build")
+            .arg("--")
+            .arg("-p")
+            .arg("--out-dir")
+            .arg(root.join("dist"))
+            .env("CARGO_TARGET_DIR", self.cargo_target_dir())
+            .current_dir(root))?;
 
         let mut js = 0;
         let mut js_gz = 0;

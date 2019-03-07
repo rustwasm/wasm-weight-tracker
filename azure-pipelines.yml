@@ -36,6 +36,13 @@ jobs:
       - template: ci/azure-install-rust.yml
         parameters:
           toolchain: nightly
+      - script: |
+          git clone https://github.com/WebAssembly/wabt
+          mkdir -p wabt/build
+          cd wabt/build
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=off -DCMAKE_CXX_COMPILER_LAUNCHER=$RUSTC_WRAPPER
+          cmake --build . -- -j$(nproc)
+          echo "##vso[task.prependpath]$PWD"
       - script: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
         displayName: "Install wasm-pack"
       - task: DownloadPipelineArtifact@0
