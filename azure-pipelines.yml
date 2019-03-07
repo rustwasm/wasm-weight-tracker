@@ -26,6 +26,8 @@ jobs:
       matrix:
         twiggy:
           benchmark: twiggy
+        dodrio_todomvc:
+          benchmark: dodrio_todomvc
         rust_webpack_template:
           benchmark: rust_webpack_template
         game_of_life:
@@ -57,6 +59,10 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: twiggy
+          targetPath: ./
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: dodrio_todomvc
           targetPath: ./
       - task: DownloadPipelineArtifact@0
         inputs:

@@ -73,6 +73,7 @@ impl Context<'_> {
         for benchmark in benchmarks {
             match benchmark.as_str() {
                 "twiggy" => self.twiggy()?,
+                "dodrio_todomvc" => self.dodrio_todomvc()?,
                 "game_of_life" => self.game_of_life()?,
                 "rust_webpack_template" => self.rust_webpack_template()?,
                 s => bail!("unknown benchmark: {}", s),
@@ -101,6 +102,14 @@ impl Context<'_> {
         let mut b = Benchmark::new("twiggy");
         let root = self.git_clone("https://github.com/rustwasm/twiggy", &mut b)?;
         self.wasm_pack_build("twiggy_wasm_api", &root.join("wasm-api"), &mut b)?;
+        self.benchmarks.push(b);
+        Ok(())
+    }
+
+    fn dodrio_todomvc(&mut self) -> Result<(), Error> {
+        let mut b = Benchmark::new("dodrio-todomvc");
+        let root = self.git_clone("https://github.com/fitzgen/dodrio", &mut b)?;
+        self.wasm_pack_build("dodrio_todomvc", &root.join("examples/todomvc"), &mut b)?;
         self.benchmarks.push(b);
         Ok(())
     }
