@@ -77,6 +77,7 @@ impl Context<'_> {
                 "source_map_mappings" => self.source_map_mappings()?,
                 "game_of_life" => self.game_of_life()?,
                 "rust_webpack_template" => self.rust_webpack_template()?,
+                "squoosh_rotate" => self.squoosh_rotate()?,
                 s => bail!("unknown benchmark: {}", s),
             }
         }
@@ -140,6 +141,14 @@ impl Context<'_> {
         self.wasm_pack_build("rust_webpack", &root.join("crate"), &mut b)?;
         self.npm_install(&root, &mut b)?;
         self.webpack_build(&root, &mut b)?;
+        self.benchmarks.push(b);
+        Ok(())
+    }
+
+    fn squoosh_rotate(&mut self) -> Result<(), Error> {
+        let mut b = Benchmark::new("squoosh-rotate");
+        let root = self.git_clone("https://github.com/GoogleChromeLabs/squoosh", &mut b)?;
+        self.cargo_build(&root.join("codecs/rotate"), "rotate", &mut b)?;
         self.benchmarks.push(b);
         Ok(())
     }

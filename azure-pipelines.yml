@@ -32,6 +32,10 @@ jobs:
           benchmark: rust_webpack_template
         game_of_life:
           benchmark: game_of_life
+        source_map_mappings:
+          benchmark: source_map_mappings
+        squoosh_rotate:
+          benchmark: squoosh_rotate
     steps:
       - template: ci/azure-install-rust.yml
         parameters:
@@ -78,6 +82,14 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: game_of_life
+          targetPath: ./
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: source_map_mappings
+          targetPath: ./
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: squoosh_rotate
           targetPath: ./
       - script: chmod +x ./collector/collector && ./collector/collector merge out.json *.json
       - task: PublishPipelineArtifact@0
