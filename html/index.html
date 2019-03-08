@@ -1,13 +1,114 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
+    <title>wasm-weight-tracker 🏋️ 📈</title>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+    <link href="style.css" rel="stylesheet" type="text/css"/>
   </head>
-  <body style='margin:100px'>
-    <div id='controls' style='display:none'>
-      <input type="checkbox" id='absolute' checked>Show absolute data<br>
-    </div>
-    <div id='loading'>
-      Loading data...
+  <body>
+    <div class='container'>
+      <h1 id='banner'>Rust and WebAssembly Weight Tracker 🏋️ 📈</h1>
+      <div id='controls' style='display:none'>
+        <input type="checkbox" id='absolute'>Show absolute data<br>
+      </div>
+
+      <div id='charts'>
+        <div id='loading'>
+          Loading data...
+        </div>
+      </div>
+
+      <div class='about'>
+        <h2>What is this?</h2>
+        <p>
+          This website is for the <a href='https://rustwasm.github.io'>
+            Rust and WebAssembly Working Group</a> to help us track one of our
+          most important metrics, file size, over time. There are a number of
+          benchmarks that are rerun every night and we collect data for. The
+          charts represent the size of these benchmarks and the various files
+          they produce over time.
+        </p>
+        <p>
+          The Working Group hopes to use this tool to diagnose regressions to
+          get fixed as well as hand out praise for improvements to file sizes.
+          The source for this website is on <a href='https://github.com/rustwasm/wasm-weight-tracker'>GitHub</a>
+          so please feel free to contribute or add your own benchmark!
+        </p>
+
+        <h2>Benchmarks</h2>
+
+        <dl>
+          <dt>twiggy</dt>
+          <dd>
+            This is a benchmark of <a
+              href='https://github.com/rustwasm/twiggy'>Twiggy's</a>
+            crate for a <a href='https://github.com/rustwasm/twiggy/tree/master/wasm-api'>
+              WebAssembly API</a>, exercising wasm-pack and wasm-bindgen.
+          </dd>
+
+          <dt>game-of-life</dt>
+          <dd>
+            This is a benchmark of the <a
+              href='https://github.com/rustwasm/wasm_game_of_life'>Game of Life Tutorial</a>
+            which corresponds to our <a href='https://rustwasm.github.io/docs/book/'>
+              introductory documentation</a>. This benchmark exercises
+            wasm-pack and wasm-bindgen.
+          </dd>
+
+          <dt>rust-webpack-template</dt>
+          <dd>
+            This is a benchmark of the <a
+              href='https://github.com/rustwasm/rust-webpack-template'>Working
+              Group's Webpack Template</a> which is the starter template that we
+            recommend for integrating with Webpack. This exercises wasm-pack,
+            wasm-bindgen, and Webpack.
+          </dd>
+
+          <dt>dodrio-todomvc</dt>
+          <dd>
+            This is a benchmark of the <a
+              href='https://github.com/fitzgen/dodrio/tree/master/examples/todomvc'>Dodrio crate's TodoMVC Example
+              </a> which exercises wasm-pack and wasm-bindgen
+          </dd>
+
+          <dt>source-map-mappings</dt>
+          <dd>
+            This is a benchmark of the <a
+              href='https://github.com/fitzgen/source-map-mappings'>
+              Wasm Source Map library
+              </a> which exercises rustc and has been featured in
+              <a href='https://hacks.mozilla.org/2018/01/oxidizing-source-maps-with-rust-and-webassembly/'>
+                a historical blog post</a>.
+          </dd>
+
+          <dt>squoosh-rotate</dt>
+          <dd>
+            This is a benchmark of the <a
+               href='https://github.com/GoogleChromeLabs/squoosh/tree/master/codecs/rotate'>
+              squoosh rotate codec
+              </a> which exercises rustc and has been featured in
+              <a href='https://developers.google.com/web/updates/2019/02/hotpath-with-wasm'>
+                a historical blog post</a>.
+          </dd>
+        </dl>
+
+        <h2>Other Information</h2>
+
+        <ul>
+          <li>At the top you can switch between absolute and relative data.
+            The absolute view will show you a graph of absolute file sizes over
+            time, whereas the relative view will show you all data relative to
+            the first data point, showing percentage change over time</li>
+
+          <li>
+            Any graph line ending in (gz) represents measuring the corresponding
+            output after gzip default compression. This is hoped to get a
+            better idea of how file changes affect compressed (likely over the
+            wire) transfers.
+          </li>
+        </ul>
+      </div>
     </div>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="index.js"></script>

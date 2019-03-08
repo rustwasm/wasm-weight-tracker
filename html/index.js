@@ -26,11 +26,11 @@ async function run() {
       min = date;
   }
 
-  const body = document.body;
+  const container = document.getElementById('charts');
   for (let bm in series) {
     const element = document.createElement('div');
     element.id = bm;
-    body.appendChild(element);
+    container.appendChild(element);
   }
 
   const button = document.getElementById('absolute');
@@ -64,13 +64,16 @@ async function render() {
       data.push({ name: output, data: raw });
     }
 
+    let yAxisTitle = 'Size (in bytes)';
+    if (!absolute)
+      yAxisTitle = 'Change in size (relative to first data point)';
     var myChart = Highcharts.chart(bm, {
       title: {
         text: bm,
       },
       yAxis: {
         title: {
-          text: 'Size (in bytes)',
+          text: yAxisTitle,
         },
         labels: {
           formatter: function() { return format(this.value); },
