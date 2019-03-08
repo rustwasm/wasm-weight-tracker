@@ -4,6 +4,19 @@ const series = {};
 let max = null;
 let min = null;
 
+const taggedReleases = {}
+taggedReleases['wasm-bindgen'] = 'https://github.com/rustwasm/wasm-bindgen';
+
+const hideCrateDiffs = {}
+hideCrateDiffs['wasm-bindgen-backend'] = true;
+hideCrateDiffs['wasm-bindgen-macro'] = true;
+hideCrateDiffs['wasm-bindgen-macro-support'] = true;
+hideCrateDiffs['wasm-bindgen-shared'] = true;
+hideCrateDiffs['wasm-bindgen-webidl'] = true;
+hideCrateDiffs['wasm-bindgen-test-macro'] = true;
+hideCrateDiffs['wasm-bindgen-test'] = true;
+hideCrateDiffs['wasm-bindgen-futures'] = true;
+
 async function run() {
   const response = await fetch('./data.json');
   const json = await response.json();
@@ -206,11 +219,15 @@ function diff_inputs(a, b) {
         const after = JSON.parse(b[i].contents);
         const before_pkg = {};
         for (let pkg of before.package) {
+          if (hideCrateDiffs[pkg.name])
+            continue;
           get_mut(before_pkg, pkg.name, []).push(pkg.version);
         }
 
         const added = {};
         for (let pkg of after.package) {
+          if (hideCrateDiffs[pkg.name])
+            continue;
           let list = get_mut(before_pkg, pkg.name, []);
           let removed = false;
           for (let i = 0; i < list.length; i++) {
@@ -242,6 +259,12 @@ function diff_inputs(a, b) {
             }
             if (removed === undefined) {
               text += `<li>+ ${pkg.name} <a target=_blank href="${url}">${version}</a></li>\n`;
+            } else if (pkg in taggedReleases) {
+              let url = taggedReleases[pkg] + '/compare/';
+              url += removed + '...' + version;
+              text += `<li>
+                <a target=_blank href="${url}">${pkg} ${removed} -> ${version}</a>
+              </li>\n`;
             } else {
               const before = `https://crates.io/crates/${pkg}/${removed}`;
               text += `<li>
