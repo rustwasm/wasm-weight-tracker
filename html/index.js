@@ -75,6 +75,7 @@ function render() {
         labels: {
           formatter: function() { return format(this.value); },
         },
+        minRange: 0.1,
       },
       xAxis: {
         type: 'datetime',
