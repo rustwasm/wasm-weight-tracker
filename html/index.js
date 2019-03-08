@@ -41,12 +41,12 @@ async function run() {
   };
   document.getElementById('controls').style.display = 'block';
 
-  render();
+  await render();
 
   document.getElementById('loading').remove();
 }
 
-function render() {
+async function render() {
   for (let bm in series) {
     const data = [];
     for (let output in series[bm]) {
@@ -119,7 +119,16 @@ function render() {
       },
       series: data,
     });
+
+    // Give a bit of time between renderings to avoid locking up the page
+    await sleep(10);
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve, reject) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function format(val) {
