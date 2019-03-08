@@ -134,6 +134,13 @@ async function render() {
         },
       },
       series: data,
+      plotOptions: {
+        line: {
+          marker: {
+            enabled: true,
+          },
+        },
+      },
     });
 
     // Give a bit of time between renderings to avoid locking up the page
